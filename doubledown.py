@@ -130,13 +130,19 @@ st.markdown("""
 
     /* BLUE FIX: hide the radio circle (the label's first child that does
        not contain the text), plus the native input and any SVG */
-    .stRadio [role="radiogroup"] label > div:first-child:not(:has([data-testid="stMarkdownContainer"])),
+    .stRadio [role="radiogroup"] label > *:not([data-testid="stMarkdownContainer"]):not(:has([data-testid="stMarkdownContainer"])),
     .stRadio [role="radiogroup"] label input,
-    .stRadio [role="radiogroup"] label svg {
+    .stRadio [role="radiogroup"] label svg,
+    .stRadio [role="radiogroup"] label [data-baseweb="radio"] > div:first-child:not(:has([data-testid="stMarkdownContainer"])) {
         display: none !important;
+        visibility: hidden !important;
         width: 0 !important;
         height: 0 !important;
+        min-width: 0 !important;
         margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        background: transparent !important;
     }
 
     .stRadio [role="radiogroup"] label div[data-testid="stMarkdownContainer"] {
@@ -442,4 +448,3 @@ if st.session_state.watchlist and data:
                         'doubleClick': False
                     }
                 )
-                
