@@ -10,8 +10,7 @@ from datetime import datetime, timedelta
 st.set_page_config(
     page_title="DoubleDown DCA", 
     page_icon="📈", 
-    layout="centered",
-    initial_sidebar_state="collapsed"
+    layout="centered"
 )
 
 st.markdown("""
@@ -28,19 +27,22 @@ st.markdown("""
         color: #ffffff !important;
     }
     
-    /* Top Padding Set to 48px */
+    /* Top Padding 48px */
     .block-container {
         padding-top: 48px !important;
         padding-bottom: 2rem !important;
         max-width: 700px;
     }
     
-    /* Glassmorphism Sidebar */
-    [data-testid="stSidebar"] {
-        background: rgba(10, 13, 20, 0.85) !important;
-        backdrop-filter: blur(20px) !important;
-        -webkit-backdrop-filter: blur(20px) !important;
-        border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+    /* Glassmorphism Containers */
+    .glass-card {
+        background: rgba(16, 22, 34, 0.75);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 16px;
+        margin-bottom: 12px;
     }
     
     /* Text & Headers */
@@ -67,8 +69,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📈 DoubleDown DCA")
-
 # -------------------------------------------------------------------
 # SESSION STATE: WATCHLIST WITH CUSTOM THRESHOLDS
 # -------------------------------------------------------------------
@@ -81,12 +81,12 @@ if "watchlist" not in st.session_state:
     ]
 
 # -------------------------------------------------------------------
-# SIDEBAR: GLASSMORPHISM SETTINGS & WATCHLIST MANAGEMENT
+# HEADER & INLINE GLASSMORPHISM SETTINGS EXPANDER
 # -------------------------------------------------------------------
-with st.sidebar:
-    st.header("⚙️ Settings & Watchlist")
-    
-    st.markdown("### Add Stock")
+st.title("📈 DoubleDown DCA")
+
+with st.expander("⚙️ Settings & Watchlist Management"):
+    st.markdown("### ➕ Add Stock")
     with st.form("add_stock_form", clear_on_submit=True):
         new_ticker = st.text_input("Ticker Symbol (e.g. AAPL)").upper().strip()
         new_name = st.text_input("Company Name")
@@ -112,7 +112,7 @@ with st.sidebar:
                 st.warning("Ticker already exists.")
                 
     st.markdown("---")
-    st.subheader("Edit Thresholds")
+    st.subheader("✏️ Edit Thresholds")
     if st.session_state.watchlist:
         edit_ticker = st.selectbox("Select stock to edit", [item["ticker"] for item in st.session_state.watchlist], key="edit_select")
         for item in st.session_state.watchlist:
@@ -127,7 +127,7 @@ with st.sidebar:
                         st.rerun()
 
     st.markdown("---")
-    st.subheader("Remove Stock")
+    st.subheader("🗑️ Remove Stock")
     tickers_to_remove = [item["ticker"] for item in st.session_state.watchlist]
     selected_to_remove = st.selectbox("Select ticker to remove", tickers_to_remove if tickers_to_remove else ["None"], key="remove_select")
     
@@ -148,7 +148,7 @@ def calculate_dca_signal(pct_from_high, dip_thresh, peak_thresh):
         return "🟢 Normal DCA", "#58a6ff"
 
 # -------------------------------------------------------------------
-# DATA FETCHING & CARDS RENDERING
+# DATA FETCHING & CARDS RENDERING WITH LOGOS
 # -------------------------------------------------------------------
 st.subheader("Your Watchlist & DCA Status")
 
@@ -169,8 +169,10 @@ for item in st.session_state.watchlist:
                 high_52w = high_52w.max()
             
             pct_diff = ((current_price - high_52w) / high_52w) * 100
-            
             signal, color = calculate_dca_signal(pct_diff, item["dip_threshold"], item["peak_threshold"])
+            
+            # Asset logo URL fallback
+            logo_url = f"https://assets.parqet.com/logos/symbol/{ticker_symbol}"
             
             data.append({
                 "Ticker": ticker_symbol,
@@ -179,7 +181,8 @@ for item in st.session_state.watchlist:
                 "52W High": f"€{high_52w:.2f}",
                 "Dist. from High": f"{pct_diff:+.1f}%",
                 "Action Signal": signal,
-                "Color": color
+                "Color": color,
+                "Logo": logo_url
             })
     except Exception:
         data.append({
@@ -189,22 +192,26 @@ for item in st.session_state.watchlist:
             "52W High": "N/A",
             "Dist. from High": "N/A",
             "Action Signal": "⚠️ Error Fetching",
-            "Color": "#f85149"
+            "Color": "#f85149",
+            "Logo": ""
         })
 
-# Render Sleek Dark Cards
+# Render Glassmorphism Cards with Logos
 if data:
     for row in data:
         st.markdown(f"""
-        <div style="background-color: #0a0d14; border: 1px solid rgba(255,255,255,0.08); padding: 16px; border-radius: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; font-family: 'Space Grotesk', sans-serif;">
-            <div>
-                <span style="font-size: 1.2rem; font-weight: bold; color: #ffffff;">{row['Ticker']}</span>
-                <span style="color: #8b949e; font-size: 0.9rem; margin-left: 8px;">{row['Name']}</span>
-                <div style="color: #8b949e; font-size: 0.85rem; margin-top: 4px;">52W High: {row['52W High']} | Dist: {row['Dist. from High']}</div>
+        <div class="glass-card" style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <img src="{row['Logo']}" width="36" height="36" style="border-radius: 50%; background: #fff; padding: 2px;" onerror="this.style.display='none'">
+                <div>
+                    <span style="font-size: 1.2rem; font-weight: bold; color: #ffffff;">{row['Ticker']}</span>
+                    <span style="color: #8b949e; font-size: 0.9rem; margin-left: 6px;">{row['Name']}</span>
+                    <div style="color: #8b949e; font-size: 0.82rem; margin-top: 2px;">52W High: {row['52W High']} | Dist: {row['Dist. from High']}</div>
+                </div>
             </div>
             <div style="text-align: right;">
                 <div style="font-size: 1.1rem; font-weight: bold; color: #ffffff;">{row['Price']}</div>
-                <div style="font-size: 0.85rem; font-weight: bold; margin-top: 4px; color: {row['Color']};">{row['Action Signal']}</div>
+                <div style="font-size: 0.82rem; font-weight: bold; margin-top: 2px; color: {row['Color']};">{row['Action Signal']}</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -212,7 +219,7 @@ else:
     st.info("Your watchlist is empty.")
 
 # -------------------------------------------------------------------
-# QUICK EXECUTION CHECK & SIMPLIFIED DYNAMIC CHART
+# QUICK EXECUTION CHECK & SIMPLIFIED DYNAMIC CHART (NO ZOOM BOX)
 # -------------------------------------------------------------------
 if st.session_state.watchlist:
     st.markdown("---")
@@ -226,6 +233,7 @@ if st.session_state.watchlist:
             if selected_ticker in history_cache:
                 full_hist = history_cache[selected_ticker]
                 
+                # Time window buttons
                 time_window = st.radio(
                     "Time Window", 
                     ["1W", "1M", "3M", "6M", "YTD", "3Y"], 
@@ -256,12 +264,15 @@ if st.session_state.watchlist:
                 avg_price = df_filtered['Close'].mean()
                 current_window_price = df_filtered['Close'].iloc[-1]
                 
+                # Green if above window average, red if below
                 line_color = "#3fb950" if current_window_price >= avg_price else "#f85149"
                 
                 df_reset = df_filtered.reset_index()
                 date_col = df_reset.columns[0]
                 
                 fig = px.line(df_reset, x=date_col, y='Close')
+                
+                # Lock chart dragmode to false so dragging behaves as a clean scrubber without zoom boxes
                 fig.update_layout(
                     plot_bgcolor='#000000',
                     paper_bgcolor='#000000',
@@ -269,14 +280,5 @@ if st.session_state.watchlist:
                     font_family='Space Grotesk',
                     margin=dict(l=0, r=0, t=10, b=0),
                     xaxis=dict(showgrid=False, zeroline=False),
-                    yaxis=dict(showgrid=True, gridcolor='#161b22', zeroline=False),
-                    hovermode='x unified'
-                )
-                fig.update_traces(
-                    line=dict(color=line_color, width=2.5),
-                    hovertemplate='<b>Price</b>: €%{y:.2f}<br><b>Date</b>: %{x}<extra></extra>'
-                )
-                
-                # Display chart with mode bar completely disabled (removes toolbar icons)
-                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-                
+                    yaxis=dict(showgrid=True, gridcolor
+                    
