@@ -56,7 +56,7 @@ st.markdown("""
         margin-bottom: 20px;
     }
     
-    /* Clean Pill Radio Buttons (No Dots, Text-Only) */
+    /* Clean Pill Radio Buttons (Text-Only, No Dots) */
     .stRadio [role="radiogroup"] {
         display: flex !important;
         gap: 6px !important;
@@ -74,11 +74,15 @@ st.markdown("""
         cursor: pointer;
         transition: all 0.2s ease;
     }
-    /* Hide radio circles & check icons completely */
-    .stRadio [role="radiogroup"] input[type="radio"],
+    /* Hide all radio indicators/circles completely */
+    .stRadio [role="radiogroup"] input,
     .stRadio [role="radiogroup"] div[data-baseweb="radio"],
     .stRadio [role="radiogroup"] span {
         display: none !important;
+    }
+    .stRadio [role="radiogroup"] label div[data-testid="stMarkdownContainer"] {
+        display: flex !important;
+        justify-content: center !important;
     }
     .stRadio [role="radiogroup"] div[data-testid="stMarkdownContainer"] p {
         color: #ffffff !important;
@@ -91,6 +95,8 @@ st.markdown("""
     .hovertext rect {
         rx: 16px !important;
         ry: 16px !important;
+        fill: rgba(16, 22, 34, 0.9) !important;
+        stroke: rgba(255, 255, 255, 0.2) !important;
     }
     
     /* Text & Headers */
@@ -146,57 +152,58 @@ with col_btn:
         st.rerun()
 
 if st.session_state.show_settings:
-    st.markdown('<div class="settings-inline">', unsafe_allow_html=True)
-    st.subheader("Settings & Watchlist")
-            
-    st.markdown("### ➕ Add Stock")
-    with st.form("add_stock_form", clear_on_submit=True):
-        new_ticker = st.text_input("Ticker Symbol (e.g. AAPL)").upper().strip()
-        new_name = st.text_input("Company Name")
-        col_d, col_p = st.columns(2)
-        with col_d:
-            new_dip = st.number_input("Dip % (-)", min_value=1.0, max_value=50.0, value=15.0, step=1.0)
-        with col_p:
-            new_peak = st.number_input("Peak % (+)", min_value=1.0, max_value=50.0, value=20.0, step=1.0)
-            
-        submitted = st.form_submit_button("Add to Watchlist")
-        if submitted and new_ticker:
-            if not any(item["ticker"] == new_ticker for item in st.session_state.watchlist):
-                st.session_state.watchlist.append({
-                    "ticker": new_ticker, 
-                    "name": new_name or new_ticker, 
-                    "dip_threshold": new_dip,
-                    "peak_threshold": new_peak
-                })
-                st.success(f"Added {new_ticker}!")
-                st.rerun()
-            else:
-                st.warning("Ticker already exists.")
+    with st.container():
+        st.markdown('<div class="settings-inline">', unsafe_allow_html=True)
+        st.subheader("Settings & Watchlist")
                 
-    st.markdown("---")
-    st.subheader("✏️ Edit Thresholds")
-    if st.session_state.watchlist:
-        edit_ticker = st.selectbox("Select stock to edit", [item["ticker"] for item in st.session_state.watchlist], key="edit_select")
-        for item in st.session_state.watchlist:
-            if item["ticker"] == edit_ticker:
-                with st.form("edit_form"):
-                    e_dip = st.number_input("Dip Trigger (%) below 52W High", value=float(item["dip_threshold"]), step=1.0)
-                    e_peak = st.number_input("Peak Trigger (%) above 52W High", value=float(item["peak_threshold"]), step=1.0)
-                    if st.form_submit_button("Update Thresholds"):
-                        item["dip_threshold"] = e_dip
-                        item["peak_threshold"] = e_peak
-                        st.success(f"Updated {edit_ticker} thresholds!")
-                        st.rerun()
+        st.markdown("### ➕ Add Stock")
+        with st.form("add_stock_form", clear_on_submit=True):
+            new_ticker = st.text_input("Ticker Symbol (e.g. AAPL)").upper().strip()
+            new_name = st.text_input("Company Name")
+            col_d, col_p = st.columns(2)
+            with col_d:
+                new_dip = st.number_input("Dip % (-)", min_value=1.0, max_value=50.0, value=15.0, step=1.0)
+            with col_p:
+                new_peak = st.number_input("Peak % (+)", min_value=1.0, max_value=50.0, value=20.0, step=1.0)
+                
+            submitted = st.form_submit_button("Add to Watchlist")
+            if submitted and new_ticker:
+                if not any(item["ticker"] == new_ticker for item in st.session_state.watchlist):
+                    st.session_state.watchlist.append({
+                        "ticker": new_ticker, 
+                        "name": new_name or new_ticker, 
+                        "dip_threshold": new_dip,
+                        "peak_threshold": new_peak
+                    })
+                    st.success(f"Added {new_ticker}!")
+                    st.rerun()
+                else:
+                    st.warning("Ticker already exists.")
+                    
+        st.markdown("---")
+        st.subheader("✏️ Edit Thresholds")
+        if st.session_state.watchlist:
+            edit_ticker = st.selectbox("Select stock to edit", [item["ticker"] for item in st.session_state.watchlist], key="edit_select")
+            for item in st.session_state.watchlist:
+                if item["ticker"] == edit_ticker:
+                    with st.form("edit_form"):
+                        e_dip = st.number_input("Dip Trigger (%) below 52W High", value=float(item["dip_threshold"]), step=1.0)
+                        e_peak = st.number_input("Peak Trigger (%) above 52W High", value=float(item["peak_threshold"]), step=1.0)
+                        if st.form_submit_button("Update Thresholds"):
+                            item["dip_threshold"] = e_dip
+                            item["peak_threshold"] = e_peak
+                            st.success(f"Updated {edit_ticker} thresholds!")
+                            st.rerun()
 
-    st.markdown("---")
-    st.subheader("🗑️ Remove Stock")
-    tickers_to_remove = [item["ticker"] for item in st.session_state.watchlist]
-    selected_to_remove = st.selectbox("Select ticker to remove", tickers_to_remove if tickers_to_remove else ["None"], key="remove_select")
-    if st.button("Remove Selected") and tickers_to_remove:
-        st.session_state.watchlist = [item for item in st.session_state.watchlist if item["ticker"] != selected_to_remove]
-        st.success(f"Removed {selected_to_remove}!")
-        st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("---")
+        st.subheader("🗑️ Remove Stock")
+        tickers_to_remove = [item["ticker"] for item in st.session_state.watchlist]
+        selected_to_remove = st.selectbox("Select ticker to remove", tickers_to_remove if tickers_to_remove else ["None"], key="remove_select")
+        if st.button("Remove Selected") and tickers_to_remove:
+            st.session_state.watchlist = [item for item in st.session_state.watchlist if item["ticker"] != selected_to_remove]
+            st.success(f"Removed {selected_to_remove}!")
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
 # DCA RULES ENGINE
@@ -292,7 +299,6 @@ if st.session_state.watchlist:
             if selected_ticker in history_cache:
                 full_hist = history_cache[selected_ticker]
                 
-                # Pre-calculate line color for the currently active timeframe
                 current_tw = st.session_state.get("time_window", "6M")
                 now_temp = full_hist.index[-1]
                 if current_tw == "1W": start_d = now_temp - timedelta(days=7)
@@ -307,7 +313,6 @@ if st.session_state.watchlist:
                 if df_t.empty: df_t = full_hist.tail(10)
                 active_line_color = "#3fb950" if df_t['Close'].iloc[-1] >= df_t['Close'].mean() else "#f85149"
                 
-                # Dynamic pill button background coloring matching active trend line
                 st.markdown(f"""
                     <style>
                     .stRadio [role="radiogroup"] label:has(input:checked) {{
@@ -321,7 +326,6 @@ if st.session_state.watchlist:
                     </style>
                 """, unsafe_allow_html=True)
                 
-                # Single Unified Time Window Radio Selection
                 time_window = st.radio(
                     "Time Window", 
                     ["1W", "1M", "3M", "6M", "YTD", "3Y"], 
@@ -360,13 +364,14 @@ if st.session_state.watchlist:
                 
                 fig = px.line(df_reset, x=date_col, y='Close')
                 
-                # Minimalist chart layout with rounded glassy hover label
+                # Reduced height (260px), minimalist layout, rounded glassy tooltip corners
                 fig.update_layout(
                     plot_bgcolor='#000000',
                     paper_bgcolor='#000000',
                     font_color='#ffffff',
                     font_family='Space Grotesk',
                     margin=dict(l=0, r=0, t=0, b=0),
+                    height=260,
                     xaxis=dict(visible=False, showgrid=False, zeroline=False, showticklabels=False),
                     yaxis=dict(visible=False, showgrid=False, zeroline=False, showticklabels=False),
                     hovermode='x unified',
@@ -378,7 +383,6 @@ if st.session_state.watchlist:
                     )
                 )
                 
-                # Clean hover format: Date on first line, price on second line
                 fig.update_traces(
                     line=dict(color=line_color, width=2.5),
                     hovertemplate='<b>%{x|%b %d, %Y}</b><br>%{y:.2f} €<extra></extra>'
