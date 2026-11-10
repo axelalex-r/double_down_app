@@ -3,9 +3,26 @@ import yfinance as yf
 import pandas as pd
 
 # -------------------------------------------------------------------
-# APP CONFIG & TITLE
+# APP CONFIG & DARK MODE STYLING
 # -------------------------------------------------------------------
 st.set_page_config(page_title="Dynamic DCA Strategy Engine", page_icon="📈", layout="centered")
+
+# Custom CSS for Dark Mode Aesthetics
+st.markdown("""
+    <style>
+    .stApp {
+        background-color: #0e1117;
+        color: #ffffff;
+    }
+    .metric-container {
+        background-color: #161b22;
+        border: 1px solid #30363d;
+        padding: 15px;
+        border-radius: 8px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 st.title("📈 Strategic DCA Action Center")
 
 # -------------------------------------------------------------------
@@ -25,7 +42,6 @@ if "watchlist" not in st.session_state:
 with st.sidebar:
     st.header("⚙️ Settings & Watchlist")
     
-    # Monthly budget input for scaling percentages to currency
     monthly_budget = st.number_input("Total Monthly Budget (€)", min_value=10, value=140, step=10)
     
     st.markdown("---")
@@ -81,6 +97,8 @@ def calculate_dca_signal(pct_from_high, base_pct):
 st.subheader("Your Dynamic Watchlist & Rules Engine")
 
 data = []
+history_cache = {}
+
 for item in st.session_state.watchlist:
     ticker_symbol = item["ticker"]
     try:
@@ -88,6 +106,7 @@ for item in st.session_state.watchlist:
         hist = stock.history(period="1y")
         
         if not hist.empty:
+            history_cache[ticker_symbol] = hist
             current_price = hist['Close'].iloc[-1]
             high_52w = hist['High'].max()
             pct_diff = ((current_price - high_52w) / high_52w) * 100
@@ -124,11 +143,11 @@ else:
     st.info("Your watchlist is empty. Use the sidebar to add stocks.")
 
 # -------------------------------------------------------------------
-# QUICK TRADE EXECUTION CHECK
+# QUICK TRADE EXECUTION CHECK & PRICE CHARTS
 # -------------------------------------------------------------------
 if st.session_state.watchlist:
     st.markdown("---")
-    st.subheader("⚡ Quick Trade Execution Check")
+    st.subheader("⚡ Quick Trade Execution Check & Price Chart")
     selected_ticker = st.selectbox("Select stock you are evaluating:", [x["ticker"] for x in st.session_state.watchlist])
     
     for row in data:
@@ -137,3 +156,8 @@ if st.session_state.watchlist:
             col1.metric("Current Status", row["Action Signal"])
             col2.metric("Target Weight", row["Target %"])
             col3.metric("Suggested Amount", row["Suggested €"], delta=row["Dist. from High"])
+            
+            # Display 1-Year Stock Price Chart
+            if selected_ticker in history_cache:
+                st.markdown(f"**{selected_ticker} — 1-Year Price Trend**")
+                st.line_chart(history_cache[selected_ticker]['Close'])
