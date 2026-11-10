@@ -45,27 +45,18 @@ st.markdown("""
         margin-bottom: 12px;
     }
 
-    /* Floating Glassmorphism Settings Overlay Modal */
-    .settings-overlay {
-        position: fixed;
-        top: 70px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 90%;
-        max-width: 500px;
-        max-height: 80vh;
-        overflow-y: auto;
-        background: rgba(10, 13, 20, 0.92);
-        backdrop-filter: blur(30px);
-        -webkit-backdrop-filter: blur(30px);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 20px;
-        padding: 24px;
-        z-index: 999999;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.8);
+    /* Inline Glassmorphism Settings Container */
+    .settings-inline {
+        background: rgba(16, 22, 34, 0.85);
+        backdrop-filter: blur(25px);
+        -webkit-backdrop-filter: blur(25px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 20px;
     }
     
-    /* Uniform Pill Radio Buttons */
+    /* Smaller Radius Pill Radio Buttons for Timeframes */
     .stRadio [role="radiogroup"] {
         display: flex !important;
         gap: 6px !important;
@@ -76,11 +67,12 @@ st.markdown("""
         text-align: center !important;
         background: rgba(255, 255, 255, 0.05) !important;
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        border-radius: 20px !important;
-        padding: 6px 0 !important;
+        border-radius: 8px !important;
+        padding: 4px 0 !important;
         margin: 0 !important;
         justify-content: center !important;
         cursor: pointer;
+        transition: all 0.2s ease;
     }
     .stRadio [role="radiogroup"] input[type="radio"] {
         display: none !important;
@@ -130,7 +122,7 @@ if "show_settings" not in st.session_state:
     st.session_state.show_settings = False
 
 # -------------------------------------------------------------------
-# HEADER & FLOATING SETTINGS OVERLAY
+# HEADER & INLINE SETTINGS MENU
 # -------------------------------------------------------------------
 col_title, col_btn = st.columns([3, 1])
 with col_title:
@@ -141,14 +133,8 @@ with col_btn:
         st.rerun()
 
 if st.session_state.show_settings:
-    st.markdown('<div class="settings-overlay">', unsafe_allow_html=True)
-    col_head, col_close = st.columns([4, 1])
-    with col_head:
-        st.subheader("Settings & Watchlist")
-    with col_close:
-        if st.button("✕", key="close_settings"):
-            st.session_state.show_settings = False
-            st.rerun()
+    st.markdown('<div class="settings-inline">', unsafe_allow_html=True)
+    st.subheader("Settings & Watchlist")
             
     st.markdown("### ➕ Add Stock")
     with st.form("add_stock_form", clear_on_submit=True):
@@ -293,11 +279,49 @@ if st.session_state.watchlist:
             if selected_ticker in history_cache:
                 full_hist = history_cache[selected_ticker]
                 
+                # Pre-calculate line color to dynamically theme the active pill button
+                time_window_temp = st.radio(
+                    "Time Window Temp", 
+                    ["1W", "1M", "3M", "6M", "YTD", "3Y"], 
+                    horizontal=True,
+                    label_visibility="collapsed",
+                    key="temp_radio_calc"
+                )
+                # Quick re-filter to determine line color for the active pill
+                now_temp = full_hist.index[-1]
+                if time_window_temp == "1W": start_d = now_temp - timedelta(days=7)
+                elif time_window_temp == "1M": start_d = now_temp - timedelta(days=30)
+                elif time_window_temp == "3M": start_d = now_temp - timedelta(days=90)
+                elif time_window_temp == "6M": start_d = now_temp - timedelta(days=180)
+                elif time_window_temp == "YTD": start_d = pd.Timestamp(now_temp.year, 1, 1, tz=now_temp.tz) if now_temp.tz else pd.Timestamp(now_temp.year, 1, 1)
+                elif time_window_temp == "3Y": start_d = now_temp - timedelta(days=365*3)
+                else: start_d = full_hist.index[0]
+                
+                df_t = full_hist[full_hist.index >= start_d]
+                if df_t.empty: df_t = full_hist.tail(10)
+                active_line_color = "#3fb950" if df_t['Close'].iloc[-1] >= df_t['Close'].mean() else "#f85149"
+                
+                # Inject dynamic active pill background color matching the trend line
+                st.markdown(f"""
+                    <style>
+                    .stRadio [role="radiogroup"] label:has(input:checked) {{
+                        background-color: {active_line_color} !important;
+                        border-color: {active_line_color} !important;
+                    }}
+                    .stRadio [role="radiogroup"] label:has(input:checked) p {{
+                        color: #000000 !important;
+                        font-weight: 700 !important;
+                    }}
+                    </style>
+                """, unsafe_allow_html=True)
+                
+                # Actual time window selection radio button
                 time_window = st.radio(
                     "Time Window", 
                     ["1W", "1M", "3M", "6M", "YTD", "3Y"], 
                     horizontal=True,
-                    label_visibility="collapsed"
+                    label_visibility="collapsed",
+                    key="time_window_main"
                 )
                 
                 now = full_hist.index[-1]
@@ -330,7 +354,7 @@ if st.session_state.watchlist:
                 
                 fig = px.line(df_reset, x=date_col, y='Close')
                 
-                # Minimalist chart layout filling box entirely with no axes/numbers/grid
+                # Minimalist chart layout with blurry transparent hover label & large rounded corners
                 fig.update_layout(
                     plot_bgcolor='#000000',
                     paper_bgcolor='#000000',
@@ -342,13 +366,13 @@ if st.session_state.watchlist:
                     hovermode='x unified',
                     dragmode=False,
                     hoverlabel=dict(
-                        bgcolor='rgba(16, 22, 34, 0.95)',
+                        bgcolor='rgba(16, 22, 34, 0.85)',
                         bordercolor='rgba(255, 255, 255, 0.2)',
                         font=dict(family='Space Grotesk', color='#ffffff', size=13)
                     )
                 )
                 
-                # Clean hover format: Date on first line, price on second line
+                # Hover format: Date on first line, price on second line
                 fig.update_traces(
                     line=dict(color=line_color, width=2.5),
                     hovertemplate='<b>%{x|%b %d, %Y}</b><br>%{y:.2f} €<extra></extra>'
@@ -363,4 +387,3 @@ if st.session_state.watchlist:
                         'doubleClick': False
                     }
                 )
-                
