@@ -7,18 +7,40 @@ import pandas as pd
 # -------------------------------------------------------------------
 st.set_page_config(page_title="Dynamic DCA Strategy Engine", page_icon="📈", layout="centered")
 
-# Custom CSS for Dark Mode Aesthetics
+# Custom CSS for Sleek Dark Mode UI matching your reference
 st.markdown("""
     <style>
+    /* Global Dark Theme */
     .stApp {
-        background-color: #0e1117;
-        color: #ffffff;
+        background-color: #0b0e14;
+        color: #f0f6fc;
     }
-    .metric-container {
+    
+    /* Sidebar Styling */
+    [data-testid="stSidebar"] {
+        background-color: #121620;
+        color: #f0f6fc;
+    }
+    
+    /* Text & Headers */
+    h1, h2, h3, h4, h5, h6, p, span, label, .stMarkdown {
+        color: #f0f6fc !important;
+    }
+    
+    /* Input Fields & Selectboxes */
+    .stTextInput input, .stNumberInput input {
+        background-color: #1a202c !important;
+        color: #ffffff !important;
+        border: 1px solid #30363d !important;
+    }
+    
+    /* Metric Cards */
+    .metric-card {
         background-color: #161b22;
         border: 1px solid #30363d;
-        padding: 15px;
-        border-radius: 8px;
+        padding: 16px;
+        border-radius: 12px;
+        margin-bottom: 12px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -85,14 +107,14 @@ def calculate_dca_signal(pct_from_high, base_pct):
     - Otherwise: Normal DCA (1.0x baseline percentage weight)
     """
     if pct_from_high <= -15.0:
-        return "🚀 Double Down", base_pct * 2.0
+        return "🚀 Double Down", base_pct * 2.0, "#3fb950"
     elif pct_from_high >= 20.0:
-        return "⚠️ Reduce Allocation", base_pct * 0.5
+        return "⚠️ Reduce Allocation", base_pct * 0.5, "#d29922"
     else:
-        return "🟢 Normal DCA", base_pct * 1.0
+        return "🟢 Normal DCA", base_pct * 1.0, "#58a6ff"
 
 # -------------------------------------------------------------------
-# DATA FETCHING & DASHBOARD RENDERING
+# DATA FETCHING & DARK CARD DASHBOARD RENDERING
 # -------------------------------------------------------------------
 st.subheader("Your Dynamic Watchlist & Rules Engine")
 
@@ -111,7 +133,7 @@ for item in st.session_state.watchlist:
             high_52w = hist['High'].max()
             pct_diff = ((current_price - high_52w) / high_52w) * 100
             
-            signal, target_pct = calculate_dca_signal(pct_diff, item["base_pct"])
+            signal, target_pct, color = calculate_dca_signal(pct_diff, item["base_pct"])
             suggested_eur = (monthly_budget * target_pct) / 100.0
             
             data.append({
@@ -121,6 +143,7 @@ for item in st.session_state.watchlist:
                 "52W High": f"€{high_52w:.2f}",
                 "Dist. from High": f"{pct_diff:+.1f}%",
                 "Action Signal": signal,
+                "Color": color,
                 "Target %": f"{target_pct:.1f}%",
                 "Suggested €": f"€{suggested_eur:.2f}"
             })
@@ -132,13 +155,28 @@ for item in st.session_state.watchlist:
             "52W High": "N/A",
             "Dist. from High": "N/A",
             "Action Signal": "⚠️ Error Fetching",
+            "Color": "#f85149",
             "Target %": f"{item['base_pct']:.1f}%",
             "Suggested €": "N/A"
         })
 
+# Render Sleek Dark Cards (replacing white tables)
 if data:
-    df = pd.DataFrame(data)
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    for row in data:
+        st.markdown(f"""
+        <div style="background-color: #161b22; border: 1px solid #30363d; padding: 16px; border-radius: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <span style="font-size: 1.2rem; font-weight: bold; color: #ffffff;">{row['Ticker']}</span>
+                <span style="color: #8b949e; font-size: 0.9rem; margin-left: 8px;">{row['Name']}</span>
+                <div style="color: #8b949e; font-size: 0.85rem; margin-top: 4px;">52W High: {row['52W High']} | Dist: {row['Dist. from High']}</div>
+            </div>
+            <div style="text-align: right;">
+                <div style="font-size: 1.1rem; font-weight: bold; color: #ffffff;">{row['Price']}</div>
+                <div style="font-size: 0.85rem; font-weight: bold; margin-top: 4px; color: {row['Color']};">{row['Action Signal']}</div>
+                <div style="font-size: 0.85rem; color: #8b949e; margin-top: 2px;">Target: {row['Target %']} ({row['Suggested €']})</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 else:
     st.info("Your watchlist is empty. Use the sidebar to add stocks.")
 
@@ -148,7 +186,7 @@ else:
 if st.session_state.watchlist:
     st.markdown("---")
     st.subheader("⚡ Quick Trade Execution Check & Price Chart")
-    selected_ticker = st.selectbox("Select stock you are evaluating:", [x["ticker"] for x in st.session_state.watchlist])
+    selected_ticker = st.selectbox("Select stock you are evaluating:", [x["Ticker"] for x in data])
     
     for row in data:
         if row["Ticker"] == selected_ticker:
