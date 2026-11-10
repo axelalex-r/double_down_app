@@ -34,7 +34,7 @@ st.markdown("""
         max-width: 700px;
     }
     
-    /* Glassmorphism Containers */
+    /* Glassmorphism Containers & Cards */
     .glass-card {
         background: rgba(16, 22, 34, 0.75);
         backdrop-filter: blur(20px);
@@ -43,6 +43,39 @@ st.markdown("""
         border-radius: 16px;
         padding: 16px;
         margin-bottom: 12px;
+    }
+    
+    /* Glassmorphism Expander (Settings Menu with high z-index) */
+    div[data-testid="stExpander"] {
+        background: rgba(16, 22, 34, 0.85) !important;
+        backdrop-filter: blur(25px) !important;
+        -webkit-backdrop-filter: blur(25px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        border-radius: 16px !important;
+        z-index: 99999 !important;
+        position: relative;
+        margin-bottom: 20px;
+    }
+    div[data-testid="stExpander"] details {
+        background: transparent !important;
+    }
+    
+    /* Pill-shaped Radio Buttons for Timeframes */
+    .stRadio [role="radiogroup"] {
+        display: flex;
+        gap: 8px;
+    }
+    .stRadio [role="radiogroup"] label {
+        background: rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 20px !important;
+        padding: 4px 14px !important;
+        margin: 0 !important;
+        cursor: pointer;
+    }
+    .stRadio [role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {
+        color: #ffffff !important;
+        font-size: 0.85rem !important;
     }
     
     /* Text & Headers */
@@ -81,7 +114,7 @@ if "watchlist" not in st.session_state:
     ]
 
 # -------------------------------------------------------------------
-# HEADER & INLINE GLASSMORPHISM SETTINGS EXPANDER
+# HEADER & GLASSMORPHISM SETTINGS EXPANDER (OVERLAPPING & BLURRED)
 # -------------------------------------------------------------------
 st.title("📈 DoubleDown DCA")
 
@@ -148,7 +181,7 @@ def calculate_dca_signal(pct_from_high, dip_thresh, peak_thresh):
         return "🟢 Normal DCA", "#58a6ff"
 
 # -------------------------------------------------------------------
-# DATA FETCHING & CARDS RENDERING WITH LOGOS
+# DATA FETCHING & CARDS RENDERING WITH SQUARE ROUNDED LOGOS
 # -------------------------------------------------------------------
 st.subheader("Your Watchlist & DCA Status")
 
@@ -171,7 +204,6 @@ for item in st.session_state.watchlist:
             pct_diff = ((current_price - high_52w) / high_52w) * 100
             signal, color = calculate_dca_signal(pct_diff, item["dip_threshold"], item["peak_threshold"])
             
-            # Asset logo URL fallback
             logo_url = f"https://assets.parqet.com/logos/symbol/{ticker_symbol}"
             
             data.append({
@@ -196,13 +228,13 @@ for item in st.session_state.watchlist:
             "Logo": ""
         })
 
-# Render Glassmorphism Cards with Logos
+# Render Glassmorphism Cards with Square Rounded Logos
 if data:
     for row in data:
         st.markdown(f"""
         <div class="glass-card" style="display: flex; justify-content: space-between; align-items: center;">
             <div style="display: flex; align-items: center; gap: 12px;">
-                <img src="{row['Logo']}" width="36" height="36" style="border-radius: 50%; background: #fff; padding: 2px;" onerror="this.style.display='none'">
+                <img src="{row['Logo']}" width="36" height="36" style="border-radius: 8px; background: #161b22; object-fit: contain; padding: 2px;" onerror="this.style.display='none'">
                 <div>
                     <span style="font-size: 1.2rem; font-weight: bold; color: #ffffff;">{row['Ticker']}</span>
                     <span style="color: #8b949e; font-size: 0.9rem; margin-left: 6px;">{row['Name']}</span>
@@ -219,7 +251,7 @@ else:
     st.info("Your watchlist is empty.")
 
 # -------------------------------------------------------------------
-# QUICK EXECUTION CHECK & SIMPLIFIED DYNAMIC CHART (NO ZOOM BOX)
+# QUICK EXECUTION CHECK & SIMPLIFIED DYNAMIC CHART
 # -------------------------------------------------------------------
 if st.session_state.watchlist:
     st.markdown("---")
@@ -233,7 +265,7 @@ if st.session_state.watchlist:
             if selected_ticker in history_cache:
                 full_hist = history_cache[selected_ticker]
                 
-                # Time window buttons
+                # Pill-styled time window buttons
                 time_window = st.radio(
                     "Time Window", 
                     ["1W", "1M", "3M", "6M", "YTD", "3Y"], 
@@ -264,7 +296,6 @@ if st.session_state.watchlist:
                 avg_price = df_filtered['Close'].mean()
                 current_window_price = df_filtered['Close'].iloc[-1]
                 
-                # Green if above window average, red if below
                 line_color = "#3fb950" if current_window_price >= avg_price else "#f85149"
                 
                 df_reset = df_filtered.reset_index()
@@ -272,7 +303,7 @@ if st.session_state.watchlist:
                 
                 fig = px.line(df_reset, x=date_col, y='Close')
                 
-                # Lock chart dragmode to false so dragging behaves as a clean scrubber without zoom boxes
+                # Glassmorphism tooltip layout and cleaned up hovertemplate (no duplicate dates)
                 fig.update_layout(
                     plot_bgcolor='#000000',
                     paper_bgcolor='#000000',
@@ -282,15 +313,19 @@ if st.session_state.watchlist:
                     xaxis=dict(showgrid=False, zeroline=False),
                     yaxis=dict(showgrid=True, gridcolor='#161b22', zeroline=False),
                     hovermode='x unified',
-                    dragmode=False
+                    dragmode=False,
+                    hoverlabel=dict(
+                        bgcolor='rgba(16, 22, 34, 0.9)',
+                        bordercolor='rgba(255, 255, 255, 0.15)',
+                        font=dict(family='Space Grotesk', color='#ffffff', size=13)
+                    )
                 )
                 
                 fig.update_traces(
                     line=dict(color=line_color, width=2.5),
-                    hovertemplate='<b>Price</b>: €%{y:.2f}<br><b>Date</b>: %{x}<extra></extra>'
+                    hovertemplate='<b>Date</b>: %{x|%b %d, %Y}<br><b>Price</b>: €%{y:.2f}<extra></extra>'
                 )
                 
-                # Disable modebar and scroll zoom completely
                 st.plotly_chart(
                     fig, 
                     use_container_width=True, 
