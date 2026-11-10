@@ -127,3 +127,89 @@ for item in st.session_state.watchlist:
     try:
         stock = yf.Ticker(ticker_symbol)
         hist = stock.history(period="1y")
+        
+        if not hist.empty:
+            history_cache[ticker_symbol] = hist
+            current_price = hist['Close'].iloc[-1]
+            high_52w = hist['High'].max()
+            pct_diff = ((current_price - high_52w) / high_52w) * 100
+            
+            signal, target_pct, color = calculate_dca_signal(pct_diff, item["base_pct"])
+            suggested_eur = (monthly_budget * target_pct) / 100.0
+            
+            data.append({
+                "Ticker": ticker_symbol,
+                "Name": item["name"],
+                "Price": f"€{current_price:.2f}",
+                "52W High": f"€{high_52w:.2f}",
+                "Dist. from High": f"{pct_diff:+.1f}%",
+                "Action Signal": signal,
+                "Color": color,
+                "Target %": f"{target_pct:.1f}%",
+                "Suggested €": f"€{suggested_eur:.2f}"
+            })
+    except Exception:
+        data.append({
+            "Ticker": ticker_symbol,
+            "Name": item["name"],
+            "Price": "N/A",
+            "52W High": "N/A",
+            "Dist. from High": "N/A",
+            "Action Signal": "⚠️ Error Fetching",
+            "Color": "#f85149",
+            "Target %": f"{item['base_pct']:.1f}%",
+            "Suggested €": "N/A"
+        })
+
+# Render Pure Black Cards with Space Grotesk
+if data:
+    for row in data:
+        st.markdown(f"""
+        <div style="background-color: #0a0d14; border: 1px solid #21262d; padding: 16px; border-radius: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; font-family: 'Space Grotesk', sans-serif;">
+            <div>
+                <span style="font-size: 1.2rem; font-weight: bold; color: #ffffff;">{row['Ticker']}</span>
+                <span style="color: #8b949e; font-size: 0.9rem; margin-left: 8px;">{row['Name']}</span>
+                <div style="color: #8b949e; font-size: 0.85rem; margin-top: 4px;">52W High: {row['52W High']} | Dist: {row['Dist. from High']}</div>
+            </div>
+            <div style="text-align: right;">
+                <div style="font-size: 1.1rem; font-weight: bold; color: #ffffff;">{row['Price']}</div>
+                <div style="font-size: 0.85rem; font-weight: bold; margin-top: 4px; color: {row['Color']};">{row['Action Signal']}</div>
+                <div style="font-size: 0.85rem; color: #8b949e; margin-top: 2px;">Target: {row['Target %']} ({row['Suggested €']})</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+else:
+    st.info("Your watchlist is empty. Use the sidebar to add stocks.")
+
+# -------------------------------------------------------------------
+# QUICK TRADE EXECUTION CHECK & PLOTLY DARK CHART
+# -------------------------------------------------------------------
+if st.session_state.watchlist:
+    st.markdown("---")
+    st.subheader("⚡ Quick Trade Execution Check & Price Chart")
+    selected_ticker = st.selectbox("Select stock you are evaluating:", [x["Ticker"] for x in data])
+    
+    for row in data:
+        if row["Ticker"] == selected_ticker:
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Current Status", row["Action Signal"])
+            col2.metric("Target Weight", row["Target %"])
+            col3.metric("Suggested Amount", row["Suggested €"], delta=row["Dist. from High"])
+            
+            # Display Sleek Dark Mode Plotly Chart
+            if selected_ticker in history_cache:
+                st.markdown(f"**{selected_ticker} — 1-Year Price Trend**")
+                df_chart = history_cache[selected_ticker].reset_index()
+                
+                fig = px.line(df_chart, x='Date', y='Close')
+                fig.update_layout(
+                    plot_bgcolor='#000000',
+                    paper_bgcolor='#000000',
+                    font_color='#ffffff',
+                    font_family='Space Grotesk',
+                    margin=dict(l=0, r=0, t=10, b=0),
+                    xaxis=dict(showgrid=True, gridcolor='#161b22', zeroline=False),
+                    yaxis=dict(showgrid=True, gridcolor='#161b22', zeroline=False)
+                )
+                fig.update_traces(line=dict(color='#3fb950', width=2.5))
+                st.plotly_chart(fig, use_container_width=True)
