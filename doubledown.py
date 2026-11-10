@@ -280,5 +280,4 @@ if st.session_state.watchlist:
                     font_family='Space Grotesk',
                     margin=dict(l=0, r=0, t=10, b=0),
                     xaxis=dict(showgrid=False, zeroline=False),
-                    yaxis=dict(showgrid=True, gridcolor
-                    
+                    yaxis=dict(showgrid=True, gridcolor),
