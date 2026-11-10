@@ -34,7 +34,7 @@ st.markdown("""
         max-width: 700px;
     }
     
-    /* Glassmorphism Containers & Cards */
+    /* Glassmorphism Cards */
     .glass-card {
         background: rgba(16, 22, 34, 0.75);
         backdrop-filter: blur(20px);
@@ -44,38 +44,51 @@ st.markdown("""
         padding: 16px;
         margin-bottom: 12px;
     }
-    
-    /* Glassmorphism Expander (Settings Menu with high z-index) */
-    div[data-testid="stExpander"] {
-        background: rgba(16, 22, 34, 0.85) !important;
-        backdrop-filter: blur(25px) !important;
-        -webkit-backdrop-filter: blur(25px) !important;
-        border: 1px solid rgba(255, 255, 255, 0.12) !important;
-        border-radius: 16px !important;
-        z-index: 99999 !important;
-        position: relative;
-        margin-bottom: 20px;
+
+    /* Floating Glassmorphism Settings Overlay Modal */
+    .settings-overlay {
+        position: fixed;
+        top: 70px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90%;
+        max-width: 500px;
+        max-height: 80vh;
+        overflow-y: auto;
+        background: rgba(10, 13, 20, 0.92);
+        backdrop-filter: blur(30px);
+        -webkit-backdrop-filter: blur(30px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 20px;
+        padding: 24px;
+        z-index: 999999;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.8);
     }
-    div[data-testid="stExpander"] details {
-        background: transparent !important;
-    }
     
-    /* Pill-shaped Radio Buttons for Timeframes */
+    /* Uniform Pill Radio Buttons */
     .stRadio [role="radiogroup"] {
-        display: flex;
-        gap: 8px;
+        display: flex !important;
+        gap: 6px !important;
+        width: 100% !important;
     }
     .stRadio [role="radiogroup"] label {
+        flex: 1 !important;
+        text-align: center !important;
         background: rgba(255, 255, 255, 0.05) !important;
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
         border-radius: 20px !important;
-        padding: 4px 14px !important;
+        padding: 6px 0 !important;
         margin: 0 !important;
+        justify-content: center !important;
         cursor: pointer;
     }
-    .stRadio [role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {
+    .stRadio [role="radiogroup"] input[type="radio"] {
+        display: none !important;
+    }
+    .stRadio [role="radiogroup"] div[data-testid="stMarkdownContainer"] p {
         color: #ffffff !important;
-        font-size: 0.85rem !important;
+        font-size: 0.8rem !important;
+        font-weight: 600 !important;
     }
     
     /* Text & Headers */
@@ -103,7 +116,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
-# SESSION STATE: WATCHLIST WITH CUSTOM THRESHOLDS
+# SESSION STATE: WATCHLIST & SETTINGS TOGGLE
 # -------------------------------------------------------------------
 if "watchlist" not in st.session_state:
     st.session_state.watchlist = [
@@ -113,12 +126,30 @@ if "watchlist" not in st.session_state:
         {"ticker": "TSM",  "name": "Taiwan Semi", "dip_threshold": 15.0, "peak_threshold": 20.0},
     ]
 
-# -------------------------------------------------------------------
-# HEADER & GLASSMORPHISM SETTINGS EXPANDER (OVERLAPPING & BLURRED)
-# -------------------------------------------------------------------
-st.title("📈 DoubleDown DCA")
+if "show_settings" not in st.session_state:
+    st.session_state.show_settings = False
 
-with st.expander("⚙️ Settings & Watchlist Management"):
+# -------------------------------------------------------------------
+# HEADER & FLOATING SETTINGS OVERLAY
+# -------------------------------------------------------------------
+col_title, col_btn = st.columns([3, 1])
+with col_title:
+    st.title("📈 DoubleDown DCA")
+with col_btn:
+    if st.button("⚙️ Settings", use_container_width=True):
+        st.session_state.show_settings = not st.session_state.show_settings
+        st.rerun()
+
+if st.session_state.show_settings:
+    st.markdown('<div class="settings-overlay">', unsafe_allow_html=True)
+    col_head, col_close = st.columns([4, 1])
+    with col_head:
+        st.subheader("Settings & Watchlist")
+    with col_close:
+        if st.button("✕", key="close_settings"):
+            st.session_state.show_settings = False
+            st.rerun()
+            
     st.markdown("### ➕ Add Stock")
     with st.form("add_stock_form", clear_on_submit=True):
         new_ticker = st.text_input("Ticker Symbol (e.g. AAPL)").upper().strip()
@@ -130,7 +161,6 @@ with st.expander("⚙️ Settings & Watchlist Management"):
             new_peak = st.number_input("Peak % (+)", min_value=1.0, max_value=50.0, value=20.0, step=1.0)
             
         submitted = st.form_submit_button("Add to Watchlist")
-        
         if submitted and new_ticker:
             if not any(item["ticker"] == new_ticker for item in st.session_state.watchlist):
                 st.session_state.watchlist.append({
@@ -163,14 +193,14 @@ with st.expander("⚙️ Settings & Watchlist Management"):
     st.subheader("🗑️ Remove Stock")
     tickers_to_remove = [item["ticker"] for item in st.session_state.watchlist]
     selected_to_remove = st.selectbox("Select ticker to remove", tickers_to_remove if tickers_to_remove else ["None"], key="remove_select")
-    
     if st.button("Remove Selected") and tickers_to_remove:
         st.session_state.watchlist = [item for item in st.session_state.watchlist if item["ticker"] != selected_to_remove]
         st.success(f"Removed {selected_to_remove}!")
         st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
-# DCA RULES ENGINE (CUSTOM THRESHOLDS)
+# DCA RULES ENGINE
 # -------------------------------------------------------------------
 def calculate_dca_signal(pct_from_high, dip_thresh, peak_thresh):
     if pct_from_high <= -dip_thresh:
@@ -181,7 +211,7 @@ def calculate_dca_signal(pct_from_high, dip_thresh, peak_thresh):
         return "🟢 Normal DCA", "#58a6ff"
 
 # -------------------------------------------------------------------
-# DATA FETCHING & CARDS RENDERING WITH SQUARE ROUNDED LOGOS
+# DATA FETCHING & CARDS RENDERING WITH SQUARE LOGOS
 # -------------------------------------------------------------------
 st.subheader("Your Watchlist & DCA Status")
 
@@ -203,14 +233,13 @@ for item in st.session_state.watchlist:
             
             pct_diff = ((current_price - high_52w) / high_52w) * 100
             signal, color = calculate_dca_signal(pct_diff, item["dip_threshold"], item["peak_threshold"])
-            
             logo_url = f"https://assets.parqet.com/logos/symbol/{ticker_symbol}"
             
             data.append({
                 "Ticker": ticker_symbol,
                 "Name": item["name"],
-                "Price": f"€{current_price:.2f}",
-                "52W High": f"€{high_52w:.2f}",
+                "Price": f"{current_price:.2f} €",
+                "52W High": f"{high_52w:.2f} €",
                 "Dist. from High": f"{pct_diff:+.1f}%",
                 "Action Signal": signal,
                 "Color": color,
@@ -228,7 +257,6 @@ for item in st.session_state.watchlist:
             "Logo": ""
         })
 
-# Render Glassmorphism Cards with Square Rounded Logos
 if data:
     for row in data:
         st.markdown(f"""
@@ -251,7 +279,7 @@ else:
     st.info("Your watchlist is empty.")
 
 # -------------------------------------------------------------------
-# QUICK EXECUTION CHECK & SIMPLIFIED DYNAMIC CHART
+# QUICK EXECUTION CHECK & MINIMALIST CHART
 # -------------------------------------------------------------------
 if st.session_state.watchlist:
     st.markdown("---")
@@ -265,7 +293,6 @@ if st.session_state.watchlist:
             if selected_ticker in history_cache:
                 full_hist = history_cache[selected_ticker]
                 
-                # Pill-styled time window buttons
                 time_window = st.radio(
                     "Time Window", 
                     ["1W", "1M", "3M", "6M", "YTD", "3Y"], 
@@ -303,27 +330,28 @@ if st.session_state.watchlist:
                 
                 fig = px.line(df_reset, x=date_col, y='Close')
                 
-                # Glassmorphism tooltip layout and cleaned up hovertemplate (no duplicate dates)
+                # Minimalist chart layout filling box entirely with no axes/numbers/grid
                 fig.update_layout(
                     plot_bgcolor='#000000',
                     paper_bgcolor='#000000',
                     font_color='#ffffff',
                     font_family='Space Grotesk',
-                    margin=dict(l=0, r=0, t=10, b=0),
-                    xaxis=dict(showgrid=False, zeroline=False),
-                    yaxis=dict(showgrid=True, gridcolor='#161b22', zeroline=False),
+                    margin=dict(l=0, r=0, t=0, b=0),
+                    xaxis=dict(visible=False, showgrid=False, zeroline=False, showticklabels=False),
+                    yaxis=dict(visible=False, showgrid=False, zeroline=False, showticklabels=False),
                     hovermode='x unified',
                     dragmode=False,
                     hoverlabel=dict(
-                        bgcolor='rgba(16, 22, 34, 0.9)',
-                        bordercolor='rgba(255, 255, 255, 0.15)',
+                        bgcolor='rgba(16, 22, 34, 0.95)',
+                        bordercolor='rgba(255, 255, 255, 0.2)',
                         font=dict(family='Space Grotesk', color='#ffffff', size=13)
                     )
                 )
                 
+                # Clean hover format: Date on first line, price on second line
                 fig.update_traces(
                     line=dict(color=line_color, width=2.5),
-                    hovertemplate='<b>Date</b>: %{x|%b %d, %Y}<br><b>Price</b>: €%{y:.2f}<extra></extra>'
+                    hovertemplate='<b>%{x|%b %d, %Y}</b><br>%{y:.2f} €<extra></extra>'
                 )
                 
                 st.plotly_chart(
