@@ -280,4 +280,24 @@ if st.session_state.watchlist:
                     font_family='Space Grotesk',
                     margin=dict(l=0, r=0, t=10, b=0),
                     xaxis=dict(showgrid=False, zeroline=False),
-                    yaxis=dict(showgrid=True, gridcolor),
+                    yaxis=dict(showgrid=True, gridcolor='#161b22', zeroline=False),
+                    hovermode='x unified',
+                    dragmode=False
+                )
+                
+                fig.update_traces(
+                    line=dict(color=line_color, width=2.5),
+                    hovertemplate='<b>Price</b>: €%{y:.2f}<br><b>Date</b>: %{x}<extra></extra>'
+                )
+                
+                # Disable modebar and scroll zoom completely
+                st.plotly_chart(
+                    fig, 
+                    use_container_width=True, 
+                    config={
+                        'displayModeBar': False,
+                        'scrollZoom': False,
+                        'doubleClick': False
+                    }
+                )
+                
