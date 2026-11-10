@@ -28,16 +28,16 @@ st.markdown("""
         color: #ffffff !important;
     }
     
-    /* Reduce top padding on main page */
+    /* Top Padding Set to 48px */
     .block-container {
-        padding-top: 1.2rem !important;
+        padding-top: 48px !important;
         padding-bottom: 2rem !important;
         max-width: 700px;
     }
     
     /* Glassmorphism Sidebar */
     [data-testid="stSidebar"] {
-        background: rgba(10, 13, 20, 0.75) !important;
+        background: rgba(10, 13, 20, 0.85) !important;
         backdrop-filter: blur(20px) !important;
         -webkit-backdrop-filter: blur(20px) !important;
         border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
@@ -86,7 +86,7 @@ if "watchlist" not in st.session_state:
 with st.sidebar:
     st.header("⚙️ Settings & Watchlist")
     
-    st.markdown("### ➕ Add Stock")
+    st.markdown("### Add Stock")
     with st.form("add_stock_form", clear_on_submit=True):
         new_ticker = st.text_input("Ticker Symbol (e.g. AAPL)").upper().strip()
         new_name = st.text_input("Company Name")
@@ -112,7 +112,7 @@ with st.sidebar:
                 st.warning("Ticker already exists.")
                 
     st.markdown("---")
-    st.subheader("✏️ Edit Thresholds")
+    st.subheader("Edit Thresholds")
     if st.session_state.watchlist:
         edit_ticker = st.selectbox("Select stock to edit", [item["ticker"] for item in st.session_state.watchlist], key="edit_select")
         for item in st.session_state.watchlist:
@@ -127,7 +127,7 @@ with st.sidebar:
                         st.rerun()
 
     st.markdown("---")
-    st.subheader("🗑️ Remove Stock")
+    st.subheader("Remove Stock")
     tickers_to_remove = [item["ticker"] for item in st.session_state.watchlist]
     selected_to_remove = st.selectbox("Select ticker to remove", tickers_to_remove if tickers_to_remove else ["None"], key="remove_select")
     
@@ -226,7 +226,6 @@ if st.session_state.watchlist:
             if selected_ticker in history_cache:
                 full_hist = history_cache[selected_ticker]
                 
-                # Time window selection buttons
                 time_window = st.radio(
                     "Time Window", 
                     ["1W", "1M", "3M", "6M", "YTD", "3Y"], 
@@ -234,7 +233,6 @@ if st.session_state.watchlist:
                     label_visibility="collapsed"
                 )
                 
-                # Filter dataframe based on time window
                 now = full_hist.index[-1]
                 if time_window == "1W":
                     start_date = now - timedelta(days=7)
@@ -255,11 +253,9 @@ if st.session_state.watchlist:
                 if df_filtered.empty:
                     df_filtered = full_hist.tail(10)
                 
-                # Calculate average price for selected window
                 avg_price = df_filtered['Close'].mean()
                 current_window_price = df_filtered['Close'].iloc[-1]
                 
-                # Switch to green if above window average, red if below
                 line_color = "#3fb950" if current_window_price >= avg_price else "#f85149"
                 
                 df_reset = df_filtered.reset_index()
@@ -280,4 +276,7 @@ if st.session_state.watchlist:
                     line=dict(color=line_color, width=2.5),
                     hovertemplate='<b>Price</b>: €%{y:.2f}<br><b>Date</b>: %{x}<extra></extra>'
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                
+                # Display chart with mode bar completely disabled (removes toolbar icons)
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+                
