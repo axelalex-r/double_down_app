@@ -56,7 +56,7 @@ st.markdown("""
         margin-bottom: 20px;
     }
     
-    /* Smaller Radius Pill Radio Buttons for Timeframes */
+    /* Clean Pill Radio Buttons (No Dots, Text-Only) */
     .stRadio [role="radiogroup"] {
         display: flex !important;
         gap: 6px !important;
@@ -68,19 +68,29 @@ st.markdown("""
         background: rgba(255, 255, 255, 0.05) !important;
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
         border-radius: 8px !important;
-        padding: 4px 0 !important;
+        padding: 6px 0 !important;
         margin: 0 !important;
         justify-content: center !important;
         cursor: pointer;
         transition: all 0.2s ease;
     }
-    .stRadio [role="radiogroup"] input[type="radio"] {
+    /* Hide radio circles & check icons completely */
+    .stRadio [role="radiogroup"] input[type="radio"],
+    .stRadio [role="radiogroup"] div[data-baseweb="radio"],
+    .stRadio [role="radiogroup"] span {
         display: none !important;
     }
     .stRadio [role="radiogroup"] div[data-testid="stMarkdownContainer"] p {
         color: #ffffff !important;
         font-size: 0.8rem !important;
         font-weight: 600 !important;
+        margin: 0 !important;
+    }
+    
+    /* Plotly Tooltip Rounded Corners */
+    .hovertext rect {
+        rx: 16px !important;
+        ry: 16px !important;
     }
     
     /* Text & Headers */
@@ -120,6 +130,9 @@ if "watchlist" not in st.session_state:
 
 if "show_settings" not in st.session_state:
     st.session_state.show_settings = False
+
+if "time_window" not in st.session_state:
+    st.session_state.time_window = "6M"
 
 # -------------------------------------------------------------------
 # HEADER & INLINE SETTINGS MENU
@@ -279,29 +292,22 @@ if st.session_state.watchlist:
             if selected_ticker in history_cache:
                 full_hist = history_cache[selected_ticker]
                 
-                # Pre-calculate line color to dynamically theme the active pill button
-                time_window_temp = st.radio(
-                    "Time Window Temp", 
-                    ["1W", "1M", "3M", "6M", "YTD", "3Y"], 
-                    horizontal=True,
-                    label_visibility="collapsed",
-                    key="temp_radio_calc"
-                )
-                # Quick re-filter to determine line color for the active pill
+                # Pre-calculate line color for the currently active timeframe
+                current_tw = st.session_state.get("time_window", "6M")
                 now_temp = full_hist.index[-1]
-                if time_window_temp == "1W": start_d = now_temp - timedelta(days=7)
-                elif time_window_temp == "1M": start_d = now_temp - timedelta(days=30)
-                elif time_window_temp == "3M": start_d = now_temp - timedelta(days=90)
-                elif time_window_temp == "6M": start_d = now_temp - timedelta(days=180)
-                elif time_window_temp == "YTD": start_d = pd.Timestamp(now_temp.year, 1, 1, tz=now_temp.tz) if now_temp.tz else pd.Timestamp(now_temp.year, 1, 1)
-                elif time_window_temp == "3Y": start_d = now_temp - timedelta(days=365*3)
+                if current_tw == "1W": start_d = now_temp - timedelta(days=7)
+                elif current_tw == "1M": start_d = now_temp - timedelta(days=30)
+                elif current_tw == "3M": start_d = now_temp - timedelta(days=90)
+                elif current_tw == "6M": start_d = now_temp - timedelta(days=180)
+                elif current_tw == "YTD": start_d = pd.Timestamp(now_temp.year, 1, 1, tz=now_temp.tz) if now_temp.tz else pd.Timestamp(now_temp.year, 1, 1)
+                elif current_tw == "3Y": start_d = now_temp - timedelta(days=365*3)
                 else: start_d = full_hist.index[0]
                 
                 df_t = full_hist[full_hist.index >= start_d]
                 if df_t.empty: df_t = full_hist.tail(10)
                 active_line_color = "#3fb950" if df_t['Close'].iloc[-1] >= df_t['Close'].mean() else "#f85149"
                 
-                # Inject dynamic active pill background color matching the trend line
+                # Dynamic pill button background coloring matching active trend line
                 st.markdown(f"""
                     <style>
                     .stRadio [role="radiogroup"] label:has(input:checked) {{
@@ -315,13 +321,13 @@ if st.session_state.watchlist:
                     </style>
                 """, unsafe_allow_html=True)
                 
-                # Actual time window selection radio button
+                # Single Unified Time Window Radio Selection
                 time_window = st.radio(
                     "Time Window", 
                     ["1W", "1M", "3M", "6M", "YTD", "3Y"], 
                     horizontal=True,
                     label_visibility="collapsed",
-                    key="time_window_main"
+                    key="time_window"
                 )
                 
                 now = full_hist.index[-1]
@@ -354,7 +360,7 @@ if st.session_state.watchlist:
                 
                 fig = px.line(df_reset, x=date_col, y='Close')
                 
-                # Minimalist chart layout with blurry transparent hover label & large rounded corners
+                # Minimalist chart layout with rounded glassy hover label
                 fig.update_layout(
                     plot_bgcolor='#000000',
                     paper_bgcolor='#000000',
@@ -372,7 +378,7 @@ if st.session_state.watchlist:
                     )
                 )
                 
-                # Hover format: Date on first line, price on second line
+                # Clean hover format: Date on first line, price on second line
                 fig.update_traces(
                     line=dict(color=line_color, width=2.5),
                     hovertemplate='<b>%{x|%b %d, %Y}</b><br>%{y:.2f} €<extra></extra>'
@@ -387,3 +393,4 @@ if st.session_state.watchlist:
                         'doubleClick': False
                     }
                 )
+                
