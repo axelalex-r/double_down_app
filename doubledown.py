@@ -1,96 +1,139 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-import requests
 
 # -------------------------------------------------------------------
 # APP CONFIG & TITLE
 # -------------------------------------------------------------------
-st.set_page_config(page_title="DCA Strategy Engine", page_icon="📈", layout="centered")
+st.set_page_config(page_title="Dynamic DCA Strategy Engine", page_icon="📈", layout="centered")
 st.title("📈 Strategic DCA Action Center")
 
 # -------------------------------------------------------------------
-# CONFIGURATION: STOCKS & BASELINE AMOUNTS
+# SESSION STATE: DYNAMIC WATCHLIST
 # -------------------------------------------------------------------
-# Define your top tickers and standard baseline monthly DCA allocations
-WATCHLIST = [
-    {"ticker": "PLTR", "name": "Palantir Technologies", "base_dca": 20},
-    {"ticker": "NVDA", "name": "Nvidia", "base_dca": 10},
-    {"ticker": "TSLA", "name": "Tesla", "base_dca": 5},
-    {"ticker": "TSM",  "name": "Taiwan Semi", "base_dca": 10},
-]
-
-# Pushover API keys for push notifications (Optional: fill in to receive mobile alerts)
-PUSHOVER_USER_KEY = "YOUR_PUSHOVER_USER_KEY"
-PUSHOVER_API_TOKEN = "YOUR_PUSHOVER_API_TOKEN"
-
-def send_push_notification(title, message):
-    """Sends immediate push notification to your smartphone via Pushover API."""
-    if PUSHOVER_USER_KEY != "YOUR_PUSHOVER_USER_KEY":
-        requests.post("https://api.pushover.net/1/messages.json", data={
-            "token": PUSHOVER_API_TOKEN,
-            "user": PUSHOVER_USER_KEY,
-            "title": title,
-            "message": message
-        })
+if "watchlist" not in st.session_state:
+    st.session_state.watchlist = [
+        {"ticker": "PLTR", "name": "Palantir Technologies", "base_pct": 14.3},
+        {"ticker": "NVDA", "name": "Nvidia", "base_pct": 7.1},
+        {"ticker": "TSLA", "name": "Tesla", "base_pct": 3.6},
+        {"ticker": "TSM",  "name": "Taiwan Semi", "base_pct": 7.1},
+    ]
 
 # -------------------------------------------------------------------
-# DCA ENGINE LOGIC
+# SIDEBAR: MANAGE WATCHLIST & BUDGET
 # -------------------------------------------------------------------
-def calculate_dca_signal(pct_from_high, base_amount):
+with st.sidebar:
+    st.header("⚙️ Settings & Watchlist")
+    
+    # Monthly budget input for scaling percentages to currency
+    monthly_budget = st.number_input("Total Monthly Budget (€)", min_value=10, value=140, step=10)
+    
+    st.markdown("---")
+    st.subheader("➕ Add Stock")
+    with st.form("add_stock_form"):
+        new_ticker = st.text_input("Ticker Symbol (e.g. AAPL)").upper().strip()
+        new_name = st.text_input("Company Name")
+        new_pct = st.number_input("Baseline Weight (%)", min_value=0.5, max_value=100.0, value=5.0, step=0.5)
+        submitted = st.form_submit_button("Add to Watchlist")
+        
+        if submitted and new_ticker:
+            if not any(item["ticker"] == new_ticker for item in st.session_state.watchlist):
+                st.session_state.watchlist.append({
+                    "ticker": new_ticker, 
+                    "name": new_name or new_ticker, 
+                    "base_pct": new_pct
+                })
+                st.success(f"Added {new_ticker}!")
+                st.rerun()
+            else:
+                st.warning("Ticker already exists in watchlist.")
+                
+    st.markdown("---")
+    st.subheader("🗑️ Remove Stock")
+    tickers_to_remove = [item["ticker"] for item in st.session_state.watchlist]
+    selected_to_remove = st.selectbox("Select ticker to remove", tickers_to_remove if tickers_to_remove else ["None"])
+    
+    if st.button("Remove Selected") and tickers_to_remove:
+        st.session_state.watchlist = [item for item in st.session_state.watchlist if item["ticker"] != selected_to_remove]
+        st.success(f"Removed {selected_to_remove}!")
+        st.rerun()
+
+# -------------------------------------------------------------------
+# DCA RULES ENGINE (PERCENTAGE SCALING)
+# -------------------------------------------------------------------
+def calculate_dca_signal(pct_from_high, base_pct):
     """
-    Custom DCA Rules Engine:
-    - Down >= 15%: Double Down (Double baseline DCA)
-    - Up >= 20%: Reduce Allocation (Half baseline DCA)
-    - Otherwise: Normal DCA (Standard baseline)
+    Dynamic Rules Engine:
+    - Down >= 15%: Double Down (2x baseline percentage weight)
+    - Up >= 20%: Reduce Allocation (0.5x baseline percentage weight)
+    - Otherwise: Normal DCA (1.0x baseline percentage weight)
     """
     if pct_from_high <= -15.0:
-        return "🚀 Double Down", base_amount * 2, "off"
+        return "🚀 Double Down", base_pct * 2.0
     elif pct_from_high >= 20.0:
-        return "⚠️ Reduce Allocation", base_amount * 0.5, "warning"
+        return "⚠️ Reduce Allocation", base_pct * 0.5
     else:
-        return "🟢 Normal DCA", base_amount * 1.0, "normal"
+        return "🟢 Normal DCA", base_pct * 1.0
 
 # -------------------------------------------------------------------
-# DATA FETCHING & RENDERING
+# DATA FETCHING & DASHBOARD RENDERING
 # -------------------------------------------------------------------
-st.subheader("Your High-Conviction Watchlist")
+st.subheader("Your Dynamic Watchlist & Rules Engine")
 
 data = []
-for item in WATCHLIST:
+for item in st.session_state.watchlist:
     ticker_symbol = item["ticker"]
-    stock = yf.Ticker(ticker_symbol)
-    
-    # Fetch 1 year of daily history to determine current price and 52-week high
-    hist = stock.history(period="1y")
-    if not hist.empty:
-        current_price = hist['Close'].iloc[-1]
-        high_52w = hist['High'].max()
-        pct_diff = ((current_price - high_52w) / high_52w) * 100
+    try:
+        stock = yf.Ticker(ticker_symbol)
+        hist = stock.history(period="1y")
         
-        signal, suggested_amount, alert_type = calculate_dca_signal(pct_diff, item["base_dca"])
-        
+        if not hist.empty:
+            current_price = hist['Close'].iloc[-1]
+            high_52w = hist['High'].max()
+            pct_diff = ((current_price - high_52w) / high_52w) * 100
+            
+            signal, target_pct = calculate_dca_signal(pct_diff, item["base_pct"])
+            suggested_eur = (monthly_budget * target_pct) / 100.0
+            
+            data.append({
+                "Ticker": ticker_symbol,
+                "Name": item["name"],
+                "Price": f"€{current_price:.2f}",
+                "52W High": f"€{high_52w:.2f}",
+                "Dist. from High": f"{pct_diff:+.1f}%",
+                "Action Signal": signal,
+                "Target %": f"{target_pct:.1f}%",
+                "Suggested €": f"€{suggested_eur:.2f}"
+            })
+    except Exception:
         data.append({
-            "Stock": f"{ticker_symbol} ({item['name']})",
-            "Current Price": f"€{current_price:.2f}",
-            "52W High": f"€{high_52w:.2f}",
-            "Dist. from High": f"{pct_diff:+.1f}%",
-            "Action Signal": signal,
-            "Suggested Trade": f"€{suggested_amount:.2f}"
+            "Ticker": ticker_symbol,
+            "Name": item["name"],
+            "Price": "N/A",
+            "52W High": "N/A",
+            "Dist. from High": "N/A",
+            "Action Signal": "⚠️ Error Fetching",
+            "Target %": f"{item['base_pct']:.1f}%",
+            "Suggested €": "N/A"
         })
 
-# Display clean interactive UI
-df = pd.DataFrame(data)
-st.dataframe(df, use_container_width=True, hide_index=True)
+if data:
+    df = pd.DataFrame(data)
+    st.dataframe(df, use_container_width=True, hide_index=True)
+else:
+    st.info("Your watchlist is empty. Use the sidebar to add stocks.")
 
 # -------------------------------------------------------------------
-# MANUAL EXECUTION QUICK CHECK
+# QUICK TRADE EXECUTION CHECK
 # -------------------------------------------------------------------
-st.markdown("---")
-st.subheader("⚡ Quick Trade Execution Check")
-selected_ticker = st.selectbox("Select stock you are about to buy:", [x["ticker"] for x in WATCHLIST])
-
-for item in data:
-    if selected_ticker in item["Stock"]:
-        st.metric("Recommended Allocation", item["Suggested Trade"], delta=item["Action Signal"])
-        st.caption(f"Current Status: **{item['Action Signal']}** ({item['Dist. from High']} relative to 52-week high)")
+if st.session_state.watchlist:
+    st.markdown("---")
+    st.subheader("⚡ Quick Trade Execution Check")
+    selected_ticker = st.selectbox("Select stock you are evaluating:", [x["ticker"] for x in st.session_state.watchlist])
+    
+    for row in data:
+        if row["Ticker"] == selected_ticker:
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Current Status", row["Action Signal"])
+            col2.metric("Target Weight", row["Target %"])
+            col3.metric("Suggested Amount", row["Suggested €"], delta=row["Dist. from High"])
