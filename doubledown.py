@@ -1,46 +1,53 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+import plotly.express as px
 
 # -------------------------------------------------------------------
-# APP CONFIG & DARK MODE STYLING
+# APP CONFIG & PURE BLACK / SPACE GROTESK STYLING
 # -------------------------------------------------------------------
 st.set_page_config(page_title="Dynamic DCA Strategy Engine", page_icon="📈", layout="centered")
 
-# Custom CSS for Sleek Dark Mode UI matching your reference
 st.markdown("""
     <style>
-    /* Global Dark Theme */
+    /* Import Space Grotesk Font */
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+    /* Apply Font Globally */
+    html, body, [class*="css"] {
+        font-family: 'Space Grotesk', sans-serif !important;
+    }
+
+    /* Pure Black App Background */
     .stApp {
-        background-color: #0b0e14;
-        color: #f0f6fc;
+        background-color: #000000 !important;
+        color: #ffffff !important;
     }
     
-    /* Sidebar Styling */
+    /* Dark Sidebar */
     [data-testid="stSidebar"] {
-        background-color: #121620;
-        color: #f0f6fc;
+        background-color: #0a0d14 !important;
+        color: #ffffff !important;
     }
     
     /* Text & Headers */
     h1, h2, h3, h4, h5, h6, p, span, label, .stMarkdown {
-        color: #f0f6fc !important;
+        color: #ffffff !important;
+        font-family: 'Space Grotesk', sans-serif !important;
     }
     
     /* Input Fields & Selectboxes */
     .stTextInput input, .stNumberInput input {
-        background-color: #1a202c !important;
+        background-color: #121824 !important;
         color: #ffffff !important;
         border: 1px solid #30363d !important;
+        font-family: 'Space Grotesk', sans-serif !important;
     }
     
-    /* Metric Cards */
-    .metric-card {
-        background-color: #161b22;
-        border: 1px solid #30363d;
-        padding: 16px;
-        border-radius: 12px;
-        margin-bottom: 12px;
+    div[data-baseweb="select"] > div {
+        background-color: #121824 !important;
+        color: #ffffff !important;
+        border: 1px solid #30363d !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -100,12 +107,6 @@ with st.sidebar:
 # DCA RULES ENGINE (PERCENTAGE SCALING)
 # -------------------------------------------------------------------
 def calculate_dca_signal(pct_from_high, base_pct):
-    """
-    Dynamic Rules Engine:
-    - Down >= 15%: Double Down (2x baseline percentage weight)
-    - Up >= 20%: Reduce Allocation (0.5x baseline percentage weight)
-    - Otherwise: Normal DCA (1.0x baseline percentage weight)
-    """
     if pct_from_high <= -15.0:
         return "🚀 Double Down", base_pct * 2.0, "#3fb950"
     elif pct_from_high >= 20.0:
@@ -126,76 +127,3 @@ for item in st.session_state.watchlist:
     try:
         stock = yf.Ticker(ticker_symbol)
         hist = stock.history(period="1y")
-        
-        if not hist.empty:
-            history_cache[ticker_symbol] = hist
-            current_price = hist['Close'].iloc[-1]
-            high_52w = hist['High'].max()
-            pct_diff = ((current_price - high_52w) / high_52w) * 100
-            
-            signal, target_pct, color = calculate_dca_signal(pct_diff, item["base_pct"])
-            suggested_eur = (monthly_budget * target_pct) / 100.0
-            
-            data.append({
-                "Ticker": ticker_symbol,
-                "Name": item["name"],
-                "Price": f"€{current_price:.2f}",
-                "52W High": f"€{high_52w:.2f}",
-                "Dist. from High": f"{pct_diff:+.1f}%",
-                "Action Signal": signal,
-                "Color": color,
-                "Target %": f"{target_pct:.1f}%",
-                "Suggested €": f"€{suggested_eur:.2f}"
-            })
-    except Exception:
-        data.append({
-            "Ticker": ticker_symbol,
-            "Name": item["name"],
-            "Price": "N/A",
-            "52W High": "N/A",
-            "Dist. from High": "N/A",
-            "Action Signal": "⚠️ Error Fetching",
-            "Color": "#f85149",
-            "Target %": f"{item['base_pct']:.1f}%",
-            "Suggested €": "N/A"
-        })
-
-# Render Sleek Dark Cards (replacing white tables)
-if data:
-    for row in data:
-        st.markdown(f"""
-        <div style="background-color: #161b22; border: 1px solid #30363d; padding: 16px; border-radius: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <span style="font-size: 1.2rem; font-weight: bold; color: #ffffff;">{row['Ticker']}</span>
-                <span style="color: #8b949e; font-size: 0.9rem; margin-left: 8px;">{row['Name']}</span>
-                <div style="color: #8b949e; font-size: 0.85rem; margin-top: 4px;">52W High: {row['52W High']} | Dist: {row['Dist. from High']}</div>
-            </div>
-            <div style="text-align: right;">
-                <div style="font-size: 1.1rem; font-weight: bold; color: #ffffff;">{row['Price']}</div>
-                <div style="font-size: 0.85rem; font-weight: bold; margin-top: 4px; color: {row['Color']};">{row['Action Signal']}</div>
-                <div style="font-size: 0.85rem; color: #8b949e; margin-top: 2px;">Target: {row['Target %']} ({row['Suggested €']})</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-else:
-    st.info("Your watchlist is empty. Use the sidebar to add stocks.")
-
-# -------------------------------------------------------------------
-# QUICK TRADE EXECUTION CHECK & PRICE CHARTS
-# -------------------------------------------------------------------
-if st.session_state.watchlist:
-    st.markdown("---")
-    st.subheader("⚡ Quick Trade Execution Check & Price Chart")
-    selected_ticker = st.selectbox("Select stock you are evaluating:", [x["Ticker"] for x in data])
-    
-    for row in data:
-        if row["Ticker"] == selected_ticker:
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Current Status", row["Action Signal"])
-            col2.metric("Target Weight", row["Target %"])
-            col3.metric("Suggested Amount", row["Suggested €"], delta=row["Dist. from High"])
-            
-            # Display 1-Year Stock Price Chart
-            if selected_ticker in history_cache:
-                st.markdown(f"**{selected_ticker} — 1-Year Price Trend**")
-                st.line_chart(history_cache[selected_ticker]['Close'])
