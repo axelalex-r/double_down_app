@@ -145,12 +145,17 @@ st.markdown("""
         text-overflow: clip !important;
     }
 
-    /* Plotly Tooltip Rounded Corners */
-    .hovertext rect {
+    /* Plotly Tooltip: rounded corners (unified-hover box + classic box) */
+    .hoverlayer .legend rect.bg,
+    .hoverlayer .hovertext rect {
         rx: 16px !important;
         ry: 16px !important;
         fill: rgba(16, 22, 34, 0.9) !important;
         stroke: rgba(255, 255, 255, 0.2) !important;
+    }
+    /* Date header of the tooltip: bold */
+    .hoverlayer .legend .legendtitletext {
+        font-weight: 700 !important;
     }
 
     /* Text & Headers */
@@ -354,11 +359,20 @@ if st.session_state.watchlist and data:
                 # Style selected timeframe pill with trend color
                 st.markdown(f"""
                     <style>
-                    div[data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"] {{
+                    div[data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"],
+                    div[data-testid="stButtonGroup"] button[aria-checked="true"],
+                    div[data-testid="stButtonGroup"] button[aria-pressed="true"],
+                    div[data-testid="stButtonGroup"] button[aria-selected="true"],
+                    div[data-testid="stButtonGroup"] button[kind="segmented_controlActive"] {{
+                        background: {active_line_color} !important;
                         background-color: {active_line_color} !important;
                         border-color: {active_line_color} !important;
                     }}
-                    div[data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"] p {{
+                    div[data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"] *,
+                    div[data-testid="stButtonGroup"] button[aria-checked="true"] *,
+                    div[data-testid="stButtonGroup"] button[aria-pressed="true"] *,
+                    div[data-testid="stButtonGroup"] button[aria-selected="true"] *,
+                    div[data-testid="stButtonGroup"] button[kind="segmented_controlActive"] * {{
                         color: #000000 !important;
                         font-weight: 700 !important;
                     }}
@@ -415,6 +429,7 @@ if st.session_state.watchlist and data:
                 fig = px.line(df_reset, x=date_col, y='Close')
 
                 # Height 240px, minimalist layout
+                fig.update_xaxes(hoverformat='%b %d, %Y')
                 fig.update_layout(
                     plot_bgcolor='#000000',
                     paper_bgcolor='#000000',
@@ -435,7 +450,7 @@ if st.session_state.watchlist and data:
 
                 fig.update_traces(
                     line=dict(color=line_color, width=2.5),
-                    hovertemplate='<b>%{x|%b %d, %Y}</b><br>%{y:.2f} €<extra></extra>'
+                    hovertemplate='%{y:.2f} €<extra></extra>'
                 )
 
                 st.plotly_chart(
