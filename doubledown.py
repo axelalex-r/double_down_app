@@ -35,6 +35,198 @@ st.markdown("""
     /* Top Padding 48px */
     .block-container {
         padding-top: 48px !important;
+        padding-bottom: 2rem !important;
+        max-width: 700px;
+    }
+
+    /* Glassmorphism Cards */
+    .glass-card {
+        background: rgba(16, 22, 34, 0.75);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 16px;
+        margin-bottom: 12px;
+    }
+
+    /* RED FIX: settings panel styled directly on a keyed container
+       (no empty <div> wrapper is rendered any more) */
+    .st-key-settings_box {
+        background: rgba(16, 22, 34, 0.85);
+        backdrop-filter: blur(25px);
+        -webkit-backdrop-filter: blur(25px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 16px;
+        padding: 20px;
+        margin-top: 10px;
+        margin-bottom: 20px;
+    }
+
+    /* PINK FIX (a): forms have no box of their own */
+    div[data-testid="stForm"],
+    .stForm {
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+    }
+
+    /* PINK FIX (b): ONE box per input.
+       The outer BaseWeb wrapper owns the fill, stroke and radius;
+       every inner layer is made fully transparent with no border. */
+    div[data-baseweb="input"],
+    div[data-baseweb="select"] > div {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 8px !important;
+        box-shadow: none !important;
+        overflow: hidden;
+    }
+    div[data-baseweb="base-input"],
+    div[data-baseweb="input"] > div,
+    .stTextInput input,
+    .stNumberInput input,
+    .stNumberInput button,
+    div[data-testid="stNumberInputContainer"] {
+        background: transparent !important;
+        background-color: transparent !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        outline: none !important;
+        color: #ffffff !important;
+        font-family: 'Space Grotesk', sans-serif !important;
+    }
+    div[data-testid="stNumberInputContainer"] {
+        border: none !important;
+    }
+
+    /* TIMEFRAME PILLS (st.segmented_control): no radio circles exist,
+       and the group stretches to the full content width */
+    div[data-testid="stElementContainer"]:has(div[data-testid="stButtonGroup"]),
+    div[data-testid="stButtonGroup"] {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    div[data-testid="stButtonGroup"] {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        gap: 6px !important;
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+    }
+    div[data-testid="stButtonGroup"] > div,
+    div[data-testid="stButtonGroup"] > div > div {
+        width: 100% !important;
+        max-width: 100% !important;
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        gap: 6px !important;
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+    }
+    div[data-testid="stButtonGroup"] button {
+        flex: 1 1 0 !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        background: rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 8px !important;
+        padding: 8px 0 !important;
+        margin: 0 !important;
+        justify-content: center !important;
+        box-shadow: none !important;
+    }
+    div[data-testid="stButtonGroup"] button p {
+        color: #ffffff !important;
+        font-size: 0.8rem !important;
+        font-weight: 600 !important;
+        margin: 0 !important;
+        white-space: nowrap !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+    }
+
+    /* Plotly Tooltip: rounded corners (unified-hover box + classic box) */
+    .hoverlayer .legend rect.bg,
+    .hoverlayer .hovertext rect {
+        rx: 8px !important;
+        ry: 8px !important;
+        fill: rgba(16, 22, 34, 0.9) !important;
+        stroke: rgba(255, 255, 255, 0.2) !important;
+    }
+    /* Date header of the tooltip: bold */
+    .hoverlayer .legend .legendtitletext {
+        font-weight: 700 !important;
+    }
+
+    /* Text & Headers */
+    h1, h2, h3, h4, h5, h6, p, span, label, .stMarkdown {
+        color: #ffffff !important;
+        font-family: 'Space Grotesk', sans-serif !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# -------------------------------------------------------------------
+# SESSION STATE: WATCHLIST & SETTINGS TOGGLE
+# -------------------------------------------------------------------
+STORAGE_KEY = "doubledown_watchlist"
+
+DEFAULT_WATCHLIST = [
+    {"ticker": "PLTR", "name": "Palantir Technologies", "dip_threshold": 15.0, "peak_threshold": 20.0},
+    {"ticker": "NVDA", "name": "Nvidia", "dip_threshold": 15.0, "peak_threshold": 20.0},
+    {"ticker": "TSLA", "name": "Tesla", "dip_threshold": 15.0, "peak_threshold": 20.0},
+    {"ticker": "TSM",  "name": "Taiwan Semi", "dip_threshold": 15.0, "peak_threshold": 20.0},
+]
+
+localS = LocalStorage()
+
+
+def parse_saved(raw):
+    """Turn whatever the browser storage returns into a valid watchlist (or None)."""
+    try:
+        for _ in range(3):  # handles values that were JSON-encoded more than once
+            if isinstance(raw, str):
+                raw = json.loads(raw)
+        if isinstance(raw, list) and raw:
+            cleaned = []
+            for it in raw:
+                cleaned.append({
+                    "ticker": str(it["ticker"]),
+                    "name": str(it.get("name", it["ticker"])),
+                    "dip_threshold": float(it.get("dip_threshold", 15.0)),
+                    "peak_threshold": float(it.get("peak_threshold", 20.0)),
+                })
+            return cleaned
+    except Exception:
+        pass
+    return None
+
+
+if "watchlist" not in st.session_state:
+    st.session_state.watchlist = copy.deepcopy(DEFAULT_WATCHLIST)
+if "ls_loaded" not in st.session_state:
+    st.session_state.ls_loaded = False
+if "save_pending" not in st.session_state:
+    st.session_state.save_pending = False
+if "save_counter" not in st.session_state:
+    st.session_state.save_counter = 0
+
+# Load the saved watchlist from the browser once. The storage component answers
+# asynchronously, so the first run may return None and a rerun delivers the value.
+if not st.session_state.ls_loaded:
+    saved = parse_saved(localS.getItem(STORAGE_KEY))
+    if saved:
+        st.session_state.watchlist = saved
+        st.session_state.ls_loaded = True
+
+if "show_settings" not in st.session_state:
+    st.session_state.show_settings = False
+
 if "time_window" not in st.session_state:
     st.session_state.time_window = "6M"
 
@@ -136,6 +328,127 @@ if st.session_state.show_settings:
                             st.success(f"Updated {edit_ticker} thresholds!")
                             st.rerun()
 
+        st.markdown("---")
+        st.subheader("🗑️ Remove Stock")
+        tickers_to_remove = [item["ticker"] for item in st.session_state.watchlist]
+        selected_to_remove = st.selectbox("Select ticker to remove", tickers_to_remove if tickers_to_remove else ["None"], key="remove_select")
+        if st.button("Remove Selected") and tickers_to_remove:
+            st.session_state.watchlist = [item for item in st.session_state.watchlist if item["ticker"] != selected_to_remove]
+            mark_dirty()
+            st.session_state.save_pending = True
+            st.success(f"Removed {selected_to_remove}!")
+            st.rerun()
+
+# -------------------------------------------------------------------
+# SAVE TO BROWSER STORAGE (runs on the rerun right after a change)
+# -------------------------------------------------------------------
+if st.session_state.save_pending:
+    st.session_state.save_counter += 1
+    st.session_state.ls_loaded = True
+    localS.setItem(
+        STORAGE_KEY,
+        json.dumps(st.session_state.watchlist),
+        key=f"save_watchlist_{st.session_state.save_counter}",
+    )
+    st.session_state.save_pending = False
+
+# -------------------------------------------------------------------
+# DCA RULES ENGINE
+# -------------------------------------------------------------------
+def calculate_dca_signal(pct_from_high, dip_thresh, peak_thresh):
+    if pct_from_high <= -dip_thresh:
+        return "🚀 Double Down", "#3fb950"
+    elif pct_from_high >= peak_thresh:
+        return "⚠️ Reduce Allocation", "#d29922"
+    else:
+        return "🟢 Normal DCA", "#58a6ff"
+
+# -------------------------------------------------------------------
+# DATA FETCHING & CARDS RENDERING WITH SQUARE LOGOS
+# -------------------------------------------------------------------
+st.subheader("Your Watchlist & DCA Status")
+
+data = []
+history_cache = {}
+
+for item in st.session_state.watchlist:
+    ticker_symbol = item["ticker"]
+    try:
+        stock = yf.Ticker(ticker_symbol)
+        hist = stock.history(period="max")
+
+        if not hist.empty:
+            history_cache[ticker_symbol] = hist
+            current_price = hist['Close'].iloc[-1]
+            high_52w = hist['High'].iloc[-252:] if len(hist) >= 252 else hist['High'].max()
+            if isinstance(high_52w, pd.Series):
+                high_52w = high_52w.max()
+
+            pct_diff = ((current_price - high_52w) / high_52w) * 100
+            signal, color = calculate_dca_signal(pct_diff, item["dip_threshold"], item["peak_threshold"])
+            logo_url = f"https://assets.parqet.com/logos/symbol/{ticker_symbol}"
+
+            data.append({
+                "Ticker": ticker_symbol,
+                "Name": item["name"],
+                "Price": f"{current_price:.2f} €",
+                "52W High": f"{high_52w:.2f} €",
+                "Dist. from High": f"{pct_diff:+.1f}%",
+                "Action Signal": signal,
+                "Color": color,
+                "Logo": logo_url
+            })
+    except Exception:
+        data.append({
+            "Ticker": ticker_symbol,
+            "Name": item["name"],
+            "Price": "N/A",
+            "52W High": "N/A",
+            "Dist. from High": "N/A",
+            "Action Signal": "⚠️ Error Fetching",
+            "Color": "#f85149",
+            "Logo": ""
+        })
+
+if data:
+    for row in data:
+        st.markdown(f"""
+        <div class="glass-card" style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <img src="{row['Logo']}" width="36" height="36" style="border-radius: 8px; background: #161b22; object-fit: contain; padding: 2px;" onerror="this.style.display='none'">
+                <div>
+                    <span style="font-size: 1.2rem; font-weight: bold; color: #ffffff;">{row['Ticker']}</span>
+                    <span style="color: #8b949e; font-size: 0.9rem; margin-left: 6px;">{row['Name']}</span>
+                    <div style="color: #8b949e; font-size: 0.82rem; margin-top: 2px;">52W High: {row['52W High']} | Dist: {row['Dist. from High']}</div>
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <div style="font-size: 1.1rem; font-weight: bold; color: #ffffff;">{row['Price']}</div>
+                <div style="font-size: 0.82rem; font-weight: bold; margin-top: 2px; color: {row['Color']};">{row['Action Signal']}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+else:
+    st.info("Your watchlist is empty.")
+
+# -------------------------------------------------------------------
+# QUICK EXECUTION CHECK & MINIMALIST CHART
+# -------------------------------------------------------------------
+if st.session_state.watchlist and data:
+    st.markdown("---")
+    st.subheader("⚡ Quick Trade Execution Check & Chart")
+    selected_ticker = st.selectbox("Select stock to analyze:", [x["Ticker"] for x in data], key="chart_select")
+
+    for row in data:
+        if row["Ticker"] == selected_ticker:
+            st.metric("Current Status", row["Action Signal"], delta=row["Dist. from High"])
+
+            if selected_ticker in history_cache:
+                full_hist = history_cache[selected_ticker]
+
+                # Active line color pre-calculation
+                current_tw = st.session_state.get("time_window") or "6M"
+                now_temp = full_hist.index[-1]
                 if current_tw == "1W": start_d = now_temp - timedelta(days=7)
                 elif current_tw == "1M": start_d = now_temp - timedelta(days=30)
                 elif current_tw == "3M": start_d = now_temp - timedelta(days=90)
@@ -254,4 +567,3 @@ if st.session_state.show_settings:
                         'doubleClick': False
                     }
                 )
-                
