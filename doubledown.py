@@ -112,8 +112,20 @@ st.markdown("""
         border: none !important;
         padding: 0 !important;
     }
+    div[data-testid="stButtonGroup"] > div,
+    div[data-testid="stButtonGroup"] > div > div {
+        width: 100% !important;
+        max-width: 100% !important;
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        gap: 6px !important;
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+    }
     div[data-testid="stButtonGroup"] button {
         flex: 1 1 0 !important;
+        width: 100% !important;
         min-width: 0 !important;
         background: rgba(255, 255, 255, 0.05) !important;
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -128,6 +140,9 @@ st.markdown("""
         font-size: 0.8rem !important;
         font-weight: 600 !important;
         margin: 0 !important;
+        white-space: nowrap !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
     }
 
     /* Plotly Tooltip Rounded Corners */
@@ -350,14 +365,22 @@ if st.session_state.watchlist and data:
                     </style>
                 """, unsafe_allow_html=True)
 
-                selected_tw = st.segmented_control(
-                    "Time Window",
-                    ["1W", "1M", "3M", "6M", "YTD", "3Y"],
+                seg_kwargs = dict(
                     default="6M",
                     selection_mode="single",
                     label_visibility="collapsed",
                     key="time_window"
                 )
+                try:
+                    selected_tw = st.segmented_control(
+                        "Time Window", ["1W", "1M", "3M", "6M", "YTD", "3Y"],
+                        width="stretch", **seg_kwargs
+                    )
+                except TypeError:  # older Streamlit without the width argument
+                    selected_tw = st.segmented_control(
+                        "Time Window", ["1W", "1M", "3M", "6M", "YTD", "3Y"],
+                        **seg_kwargs
+                    )
                 # Clicking the active pill again deselects it -> fall back to 6M
                 time_window = selected_tw or "6M"
 
@@ -424,3 +447,4 @@ if st.session_state.watchlist and data:
                         'doubleClick': False
                     }
                 )
+                
