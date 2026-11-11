@@ -148,8 +148,8 @@ st.markdown("""
     /* Plotly Tooltip: rounded corners (unified-hover box + classic box) */
     .hoverlayer .legend rect.bg,
     .hoverlayer .hovertext rect {
-        rx: 16px !important;
-        ry: 16px !important;
+        rx: 8px !important;
+        ry: 8px !important;
         fill: rgba(16, 22, 34, 0.9) !important;
         stroke: rgba(255, 255, 255, 0.2) !important;
     }
