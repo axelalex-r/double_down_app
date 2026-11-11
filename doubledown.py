@@ -97,60 +97,33 @@ st.markdown("""
         border: none !important;
     }
 
-    /* YELLOW FIX: every wrapper around the pills stretches to full width */
-    div[data-testid="stElementContainer"]:has(.stRadio),
-    div[data-testid="stRadio"],
-    div[data-testid="stRadio"] > div,
-    .stRadio,
-    .stRadio > div {
+    /* TIMEFRAME PILLS (st.segmented_control): no radio circles exist,
+       and the group stretches to the full content width */
+    div[data-testid="stElementContainer"]:has(div[data-testid="stButtonGroup"]),
+    div[data-testid="stButtonGroup"] {
         width: 100% !important;
         max-width: 100% !important;
     }
-    .stRadio [role="radiogroup"] {
+    div[data-testid="stButtonGroup"] {
         display: flex !important;
-        flex-direction: row !important;
         flex-wrap: nowrap !important;
         gap: 6px !important;
-        width: 100% !important;
-        justify-content: space-between !important;
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
     }
-    .stRadio [role="radiogroup"] label {
+    div[data-testid="stButtonGroup"] button {
         flex: 1 1 0 !important;
         min-width: 0 !important;
-        text-align: center !important;
         background: rgba(255, 255, 255, 0.05) !important;
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
         border-radius: 8px !important;
         padding: 8px 0 !important;
         margin: 0 !important;
         justify-content: center !important;
-        cursor: pointer;
-        transition: all 0.2s ease;
+        box-shadow: none !important;
     }
-
-    /* BLUE FIX: hide the radio circle (the label's first child that does
-       not contain the text), plus the native input and any SVG */
-    .stRadio [role="radiogroup"] label > *:not([data-testid="stMarkdownContainer"]):not(:has([data-testid="stMarkdownContainer"])),
-    .stRadio [role="radiogroup"] label input,
-    .stRadio [role="radiogroup"] label svg,
-    .stRadio [role="radiogroup"] label [data-baseweb="radio"] > div:first-child:not(:has([data-testid="stMarkdownContainer"])) {
-        display: none !important;
-        visibility: hidden !important;
-        width: 0 !important;
-        height: 0 !important;
-        min-width: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        border: none !important;
-        background: transparent !important;
-    }
-
-    .stRadio [role="radiogroup"] label div[data-testid="stMarkdownContainer"] {
-        display: flex !important;
-        justify-content: center !important;
-        width: 100% !important;
-    }
-    .stRadio [role="radiogroup"] div[data-testid="stMarkdownContainer"] p {
+    div[data-testid="stButtonGroup"] button p {
         color: #ffffff !important;
         font-size: 0.8rem !important;
         font-weight: 600 !important;
@@ -349,7 +322,7 @@ if st.session_state.watchlist and data:
                 full_hist = history_cache[selected_ticker]
 
                 # Active line color pre-calculation
-                current_tw = st.session_state.get("time_window", "6M")
+                current_tw = st.session_state.get("time_window") or "6M"
                 now_temp = full_hist.index[-1]
                 if current_tw == "1W": start_d = now_temp - timedelta(days=7)
                 elif current_tw == "1M": start_d = now_temp - timedelta(days=30)
@@ -366,24 +339,27 @@ if st.session_state.watchlist and data:
                 # Style selected timeframe pill with trend color
                 st.markdown(f"""
                     <style>
-                    .stRadio [role="radiogroup"] label:has(input:checked) {{
+                    div[data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"] {{
                         background-color: {active_line_color} !important;
                         border-color: {active_line_color} !important;
                     }}
-                    .stRadio [role="radiogroup"] label:has(input:checked) p {{
+                    div[data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"] p {{
                         color: #000000 !important;
                         font-weight: 700 !important;
                     }}
                     </style>
                 """, unsafe_allow_html=True)
 
-                time_window = st.radio(
+                selected_tw = st.segmented_control(
                     "Time Window",
                     ["1W", "1M", "3M", "6M", "YTD", "3Y"],
-                    horizontal=True,
+                    default="6M",
+                    selection_mode="single",
                     label_visibility="collapsed",
                     key="time_window"
                 )
+                # Clicking the active pill again deselects it -> fall back to 6M
+                time_window = selected_tw or "6M"
 
                 now = full_hist.index[-1]
                 if time_window == "1W":
